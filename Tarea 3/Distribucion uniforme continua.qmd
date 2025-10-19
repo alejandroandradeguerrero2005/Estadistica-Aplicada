@@ -1,0 +1,266 @@
+---
+title: "Distribución Uniforme Continua"
+lang: es
+---
+
+```{=html}
+<style>
+main.content {
+text-align: justify}
+</style>
+```
+
+```{r}
+#| include: false
+#| label: setup
+
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(plotly)
+
+```
+
+## Ejercicios Propuestos
+
+::: {#exr-tiempo_carga}
+### Análisis de Tiempo de Carga
+
+El tiempo de carga de una página web sigue una distribución uniforme entre 2 y 8 segundos.
+
+1.  Crear un histograma de los tiempos de carga simulados (n=1000) y superponer la densidad teórica.
+2.  Cuál es el percentil 75 de los tiempos de carga?
+3.  ¿Cuál es la probabilidad de que una página cargue en menos de 4 segundos?
+:::
+
+
+```{r}
+#| include: false
+#| label: solucion-ejercicio-tiempo-carga
+
+# Parámetros del problema
+a_carga <- 2
+b_carga <- 8
+n_cargas <- 1000
+
+# Simular tiempos de carga
+tiempos_carga <- runif(n_cargas, min = a_carga, max = b_carga)
+
+# Histograma con densidad teórica
+ggplot(data.frame(tiempo = tiempos_carga), aes(x = tiempo)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30,
+                 fill = "blue", color = "black", alpha = 0.7) +
+  geom_hline(yintercept = 1/(b_carga - a_carga),
+             color = "red", size = 1, linetype = "dashed") +
+  labs(title = "Histograma de Tiempos de Carga con Densidad Teorica",
+       x = "Tiempo de carga (segundos)",
+       y = "Densidad",
+       caption = "Línea roja: Densidad teórica = 1/6 ≈ 0.167") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Percentil 75
+percentil_75 <- qunif(0.75, min = a_carga,
+                      max = b_carga)
+cat("Percentil 75 de los tiempos de carga:", round(percentil_75,
+    2), "segundos\n")
+
+# Probabilidad de cargar en menos de 4 segundos
+prob_menos_4 <- punif(4, min = a_carga,
+                      max = b_carga)
+cat("Probabilidad de que una página cargue en menos de 4 segundos:",
+    round(prob_menos_4, 3), "\n")
+    
+```
+
+
+
+------------------------------------------------------------------------
+
+::: {#exr-calificaciones}
+### Distribución de Calificaciones
+
+En un examen muy fácil, las calificaciones se distribuyen uniformemente entre 70 y 100 puntos.
+
+1.  Simular calificaciones de 500 estudiantes
+2.  ¿Qué porcentaje de estudiantes obtiene calificación superior a 85?
+3.  Crear categorías: Aprobado (70-79), Bien (80-89), Excelente (90-100) y calcular el porcentaje en cada categoría
+4.  Comparar con los porcentajes teóricos
+5.  Graficar la distribución con las categorías marcadas \`
+:::
+
+
+```{r}
+#| include: false
+#| label: solucion-ejercicio-calificaciones
+
+# Parámetros del problema
+a_calif <- 70
+b_calif <- 100
+n_estudiantes <- 500
+set.seed(123)  # Para reproducibilidad
+# Simular calificaciones
+calificaciones <- runif(n_estudiantes, min = a_calif, max = b_calif)
+# Porcentaje de estudiantes con calificación superior a 85
+porcentaje_superior_85 <- mean(calificaciones > 85) * 100
+cat("Porcentaje de estudiantes con calificación superior a 85:",
+    round(porcentaje_superior_85, 2), "%\n")
+# Categorías
+categorias <- cut(calificaciones,
+                  breaks = c(69, 79, 89, 100),
+                  labels = c("Aprobado", "Bien", "Excelente"),
+                  right = TRUE)
+# Porcentaje en cada categoría
+tabla_categorias <- table(categorias)
+porcentajes_categorias <- prop.table(tabla_categorias) * 100
+cat("Porcentajes en cada categoría:\n")
+print(round(porcentajes_categorias, 2))
+# Porcentajes teóricos
+porcentajes_teoricos <- c(
+  Aprobado = (79 - 70) / (b_calif - a_calif) * 100,
+  Bien = (89 - 80) / (b_calif - a_calif) * 100,
+  Excelente = (100 - 90) / (b_calif - a_calif) * 100
+)
+cat("Porcentajes teóricos en cada categoría:\n")
+print(round(porcentajes_teoricos, 2))
+# Gráfico de la distribución con categorías
+df_calificaciones <- data.frame(calificaciones = calificaciones,
+                                categoria = categorias)
+ggplot(df_calificaciones, aes(x = calificaciones, fill = categoria)) +
+  geom_histogram(bins = 30, color = "black", alpha = 0.7, position = "identity") +
+  scale_fill_manual(values = c("Aprobado" = "#901992", "Bien" = "green", "Excelente" = "#919109")) +
+  labs(title = "Distribución de Calificaciones",
+       x = "Calificación",
+       y = "Número de Estudiantes",
+       fill = "Categoría") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+------------------------------------------------------------------------
+
+::: {#exr-tcl_verificacion}
+### Verificación del TCL con Distribución Asimétrica
+
+Crear una distribución uniforme "truncada" y verificar el TCL.
+
+1.  Generar muestras de unif(0,1) pero solo conservar valores \> 0.3 (esto creará una distribución sesgada)
+
+2.  Para tamaños de muestra n = c(5, 15, 30, 60, 120):
+
+    -   Generar 800 medias muestrales de cada tamaño
+    -   Crear histogramas mostrando la normalización
+    -   Calcular skewness y kurtosis de las distribuciones de medias
+
+3.  ¿A partir de qué tamaño de muestra la distribución de medias se ve aproximadamente normal?
+:::
+
+```{r}
+#| include: false
+#| label: solucion-ejercicio-tcl-verificacion
+
+library(moments)
+# Función para generar muestra truncada
+generar_muestra_truncada <- function(n, min_val = 0.3)
+{
+  muestra <- numeric(0)
+  while (length(muestra) < n) {
+    valor <- runif(1, min = 0, max = 1)
+    if (valor > min_val) {
+      muestra <- c(muestra, valor)
+    }
+  }
+  return(muestra)
+}
+# Parámetros
+n_simulaciones <- 800
+tamaños_muestra <- c(5, 15, 30, 60, 120)
+resultados_tcl_truncado <- list()
+# Generar medias muestrales para cada tamaño
+for (n in tamaños_muestra) {
+  medias <- replicate(n_simulaciones, mean(generar_muestra_truncada(n)))
+  resultados_tcl_truncado[[as.character(n)]] <- data.frame(
+    medias = medias,
+    n = n,
+    skewness = skewness(medias),
+    kurtosis = kurtosis(medias)
+  )
+}
+# Combinar resultados
+df_tcl_truncado <- do.call(rbind, resultados_tcl_truncado)
+df_tcl_truncado$n_factor <- factor(paste("n =", df_tcl_truncado$n))
+# Gráfico de histogramas para diferentes tamaños de muestra
+ggplot(df_tcl_truncado, aes(x = medias)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30,
+                 fill = "blue", color = "black", alpha = 0.7) +
+  geom_vline(xintercept = mean(df_tcl_truncado$medias), color = "red", size = 1, linetype = "dashed") +
+  facet_wrap(~n_factor, scales = "free_y", ncol = 3) +
+  labs(title = "Teorema Central del Límite - Distribución de Medias Muestrales (Truncada)",
+       subtitle = "Distribución U(0,1) truncada en > 0.3",
+       x = "Media muestral",
+       y = "Densidad") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+# Resumen de skewness y kurtosis
+resumen_skew_kurt <- df_tcl_truncado %>%
+  group_by(n) %>%
+  summarise(
+    skewness = first(skewness),
+    kurtosis = first(kurtosis),
+    .groups = 'drop'
+  )
+# Mostrar tabla de skewness y kurtosis
+kable(resumen_skew_kurt, 
+      caption = "Skewness y Kurtosis de las Medias Muestrales",
+      digits = 4) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+  
+```
+
+
+------------------------------------------------------------------------
+
+::: {#exr-pi_simulacion}
+### Simulación de Monte Carlo
+
+Usar simulación Monte Carlo para estimar $\pi$ usando distribución uniforme.
+:::
+```
+
+```{r}
+
+#| include: false
+#| label: solucion-ejercicio-pi-simulacion
+
+set.seed(123)  # Para reproducibilidad
+n_puntos <- 10000
+# Generar puntos aleatorios en el cuadrado [-1,1] x [-1, 1]
+x <- runif(n_puntos, min = -1, max = 1)
+y <- runif(n_puntos, min = -1, max = 1)
+# Calcular cuántos puntos caen dentro del círculo unitario
+dentro_circulo <- (x^2 + y^2) <= 1
+n_dentro <- sum(dentro_circulo)
+# Estimar π
+pi_estimado <- (n_dentro / n_puntos) * 4
+cat("Estimación de π usando simulación Monte Carlo con", n_puntos,
+    "puntos:", round(pi_estimado, 5), "\n")
+# Visualización
+df_pi <- data.frame(x = x, y = y, dentro = dentro_circulo)
+ggplot(df_pi, aes(x = x, y = y, color = dentro)) +
+  geom_point(alpha = 0.5, size = 1) +
+  coord_fixed() +
+  labs(title = "Simulación Monte Carlo para Estimar π",
+       subtitle = paste("Estimación de π =", round(pi_estimado, 5)),
+       x = "X",
+       y = "Y",
+       color = "Dentro del Círculo") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5)) +
+  scale_color_manual(values = c("TRUE" = "blue", "FALSE" = "lightgray"))
+  
+```
+
+

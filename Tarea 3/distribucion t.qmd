@@ -1,0 +1,178 @@
+---
+title: "Distribución t de Student."
+lang: es
+---
+
+```{=html}
+<style>
+main.content {
+text-align: justify}
+</style>
+```
+
+```{r}
+#| label: setup
+#| echo: false
+#| message: false
+#| warning: false
+
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(RColorBrewer)
+library(plotly)
+library(scales)
+library(viridis)
+
+```
+
+## Ejercicios Propuestos
+
+::: {#exr-muestras_tstudent}
+
+Genera muestras aleatorias de tamaño 100, 300 y 1000 de una distribución t de Student con 5 grados de libertad. Para cada muestra:
+
+1. Calcula la media y varianza muestral; y compara con los valores teóricos.
+
+```{r}
+set.seed(123)  # Para reproducibilidad
+sample_sizes <- c(100, 300, 1000)
+results <- data.frame(
+  SampleSize = integer(),
+  SampleMean = numeric(),
+  TheoreticalMean = numeric(),
+  SampleVariance = numeric(),
+  TheoreticalVariance = numeric()
+)
+for (n in sample_sizes) {
+  sample <- rt(n, df = 5)
+  sample_mean <- mean(sample)
+  sample_variance <- var(sample)
+  
+  results <- rbind(results, data.frame(
+    SampleSize = n,
+    SampleMean = sample_mean,
+    TheoreticalMean = ifelse(5 > 1, 0, NA),
+    SampleVariance = sample_variance,
+    TheoreticalVariance = ifelse(5 > 2, 5 / (5 - 2), NA)
+  ))
+}
+kable(results, caption = "Media y Varianza Muestral vs Teórica") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+  
+```
+
+2. Para la muestra de mayor tamaño, realiza un histograma, superpone la función de densidad teórica de la variable aleatoria $t(5)$ y la función de densidad de una normal estándar.
+
+```{r}
+# Muestra de tamaño 1000
+set.seed(123)
+sample_large <- rt(1000, df = 5)
+hist_data <- data.frame(value = sample_large)
+ggplot(hist_data, aes(x = value)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "#942912", color = "black", alpha = 0.7) +
+  stat_function(fun = dt, args = list(df = 5), color = "blue", size = 1.2, linetype = "solid") +
+  stat_function(fun = dnorm, args = list(mean = 0, sd = 1), color = "red", size = 1.2, linetype = "dashed") +
+  labs(
+    title = "Histograma de Muestra t(5) con Densidades Teóricas",
+    x = "Valor",
+    y = "Densidad"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  ) +
+  xlim(-5, 5)
+
+```
+
+
+:::
+
+
+::: {#exr-relacion_normal_ji}
+
+::: {#prp-rel_normal_ji}
+
+Si $x\sim N(0,1)$ y $Y\sim \chi^2(n)$ son dos variables aleatorias independientes, entonces la variable aleatoria:
+
+$$T=\frac{X}{\sqrt{Y/n}}\sim t(n)$$
+
+```{r}
+# Verificación mediante simulación
+n <- 10
+X <- rnorm(1000, 0, 1)
+Y <- rchisq(1000, df = n)
+T <- X / sqrt(Y / n)
+hist(T, breaks = 30, probability = TRUE, main = "Histograma de T con t(10)", xlab = "T")
+curve(dt(x, df = n), col = "red", lwd = 2, add = TRUE)
+
+```
+
+:::
+
+---
+
+Genera una muestra aleatoria de de tamaño 1000 para $X\sim N(0,1)$ y $Y\sim \chi^2(10)$. Calcula la variable aleatoria $T$ y compara su histograma con la función de densidad teórica de $t(10)$.
+
+```{r}
+
+n <- 10
+X <- rnorm(1000, 0, 1)
+Y <- rchisq(1000, df = n)
+T <- X / sqrt(Y / n)
+hist(T, breaks = 30, probability = TRUE, main = "Histograma de T con t(10)", xlab = "T")
+curve(dt(x, df = n), col = "red", lwd = 2, add = TRUE)
+
+```
+
+:::
+
+
+::: {#exr-n_normales}
+
+
+::: {#prp-n_normal}
+
+Sean $X_1,X_2,\ldots,X_n$ variables aleatorias independientes e idénticamente distribuidas como $N(\mu,\sigma^2)$. Entonces la variable aleatoria:
+
+$$T= \frac{\overline{X}-\mu}{S/\sqrt{n}}\sim t(n-1)$$
+
+en donde $\overline{X}=\frac{1}{n}\sum_{i=1}^n X_i$ y $S^2=\frac{1}{n-1}\sum_{i=1}^n (X_i-\overline{X})^2$.
+
+```{r}
+# Verificación mediante simulación
+n <- 10
+mu <- 0
+sigma <- 1
+X <- matrix(rnorm(1000 * n, mu, sigma), nrow = 1000, ncol = n)
+X_bar <- rowMeans(X)
+S <- apply(X, 1, sd)
+T <- (X_bar - mu) / (S / sqrt(n))
+hist(T, breaks = 30, probability = TRUE, main = "Histograma de T con t(9)", xlab = "T")
+curve(dt(x, df = n - 1), col = "red", lwd = 2, add = TRUE)
+
+```
+
+:::
+
+---
+
+Genera 1000 muestras aleatorias de tamaño 10 de una distribución normal estándar. Para cada muestra calcula la media muestral y la desviación estándar muestral. Luego calcula la variable aleatoria $T$ y compara su histograma con la función de densidad teórica de $t(9)$.
+
+```{r}
+n <- 10
+mu <- 0
+sigma <- 1
+X <- matrix(rnorm(1000 * n, mu, sigma), nrow = 1000, ncol = n)
+X_bar <- rowMeans(X)
+S <- apply(X, 1, sd)
+T <- (X_bar - mu) / (S / sqrt(n))
+hist(T, breaks = 30, probability = TRUE, main = "Histograma de T con t(9)", xlab = "T")
+curve(dt(x, df = n - 1), col = "red", lwd = 2, add = TRUE)
+
+```
+
+:::

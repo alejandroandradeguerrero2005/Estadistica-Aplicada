@@ -1,0 +1,291 @@
+---
+title: "Distribución Normal"
+lang: es
+---
+
+```{=html}
+<style>
+main.content {
+text-align: justify}
+</style>
+```
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(moments)
+```
+
+## Ejercicios Propuestos
+
+::: {#exr-altura}
+### Análisis de Altura de Estudiantes
+
+Las alturas de estudiantes universitarios siguen una distribución normal con media $\mu = 170 cm$ y desviación estándar $\sigma = 8 cm$.
+
+1.  Simula una muestra de 500 estudiantes
+2.  Calcula la media, mediana y desviación estándar muestral
+3.  ¿Qué porcentaje de estudiantes mide más de 180 cm?
+4.  ¿Cuál es la altura del estudiante en el percentil 25?
+5.  Crea un histograma de la muestra con la densidad teórica superpuesta
+
+```{r}
+# Generamos la muestra
+mu_altura <- 170
+sigma_altura <- 8
+
+muestra_altura <- rnorm(500, mean = mu_altura, sd = sigma_altura )
+media_altura <- mean(muestra_altura)
+mediana_altura <- median(muestra_altura)
+sd_altura <- sd(muestra_altura)
+
+cat("La media de la altura es:", media_altura, "\n")
+cat("La mediana de la altura es:", mediana_altura, "\n")
+cat("La sd de la altura es:", sd_altura, "\n")
+
+```
+```{r}
+dist_altura <- tibble(
+  estaturas = seq(mu_altura - 4* sigma_altura, mu_altura + 4* sigma_altura,length=1000),
+  pdf_altura = dnorm(estaturas, mean = mu_altura, sd= sigma_altura),
+  cdf_altrua = pnorm(estaturas, mean = mu_altura, sd= sigma_altura)
+)
+
+ggplot(dist_altura)+
+  geom_line(aes(estaturas, pdf_altura), color = "blue", linewidth=1.3)+
+  geom_area(data = dist_altura |> filter(estaturas >=180), aes(estaturas, pdf_altura), fill= "red", alpha=0.5)+
+  geom_vline(xintercept = 180, linetype ="dashed")+
+  annotate("label", x=190, y=0.01, 
+           label = paste("1-F(180)= ", round(pnorm(180, mu_altura, sigma_altura, lower.tail = FALSE), 4) ), color = "#018291", size=3, fill = "yellow")+
+  theme_bw()
+
+
+```
+
+
+```{r}
+ggplot()+
+  geom_histogram(aes(muestra_altura, y=after_stat(density)), fill = "#019021", color= "#01902190", center = 170)+
+  geom_line(data = dist_altura, aes(estaturas, pdf_altura), color = "red", linewidth=1.3)+
+  theme_bw()
+  
+```
+
+:::
+
+---
+
+::: {#exr-temperatura}
+### Control de Temperatura Industrial
+
+Un proceso industrial debe mantener la temperatura a 350°C ± 10°C. Las temperaturas siguen $N(350, 5^2)$.
+
+1.  Simular un día de producción (1000 mediciones)
+2.  ¿Qué porcentaje del tiempo la temperatura está fuera de especificación?
+3.  Si el proceso se descentra a $\mu = 355°C$, ¿cómo cambia la calidad?
+4.  ¿Qué $\sigma$ se necesita para tener 99.9% de productos dentro de especificación?
+:::
+
+```{r}
+# Parámetros del proceso
+mu_temp <- 350  # °C
+sigma_temp <- 5  # °C
+limite_inferior_temp <- 340
+limite_superior_temp <- 360
+# Simulación de un día de producción
+n_mediciones <- 1000
+set.seed(789)
+temperaturas <- rnorm(n_mediciones, mean = mu_temp, sd = sigma_temp)
+# Análisis de calidad
+dentro_especificacion_temp <- sum(temperaturas >= limite_inferior_temp & temperaturas <= limite_superior_temp)
+fuera_especificacion_temp <- n_mediciones - dentro_especificacion_temp
+porcentaje_fuera_especificacion <- (fuera_especificacion_temp / n_mediciones) * 100
+cat("Porcentaje de tiempo fuera de especificación:", round(porcentaje_fuera_especificacion, 2), "%\n")
+# Descentrar el proceso a μ = 355°C
+mu_temp_descentrado <- 355
+temperaturas_descentrado <- rnorm(n_mediciones, mean = mu_temp_descentrado, sd = sigma_temp)
+dentro_especificacion_temp_descentrado <- sum(temperaturas_descentrado >= limite_inferior_temp & temperaturas_descentrado <= limite_superior_temp)
+fuera_especificacion_temp_descentrado <- n_mediciones - dentro_especificacion_temp_descentrado
+porcentaje_fuera_especificacion_descentrado <- (fuera_especificacion_temp_descentrado / n_mediciones) * 100
+cat("Porcentaje de tiempo fuera de especificación (μ = 355°C):", round(porcentaje_fuera_especificacion_descentrado, 2), "%\n")
+# Calcular σ necesario para 99.9% dentro de especificación
+z_999 <- qnorm(0.9995)  # z para 99.9% dentro de especificación
+sigma_necesario <- (limite_superior_temp - mu_temp) / z_999
+cat("σ necesario para 99.9% dentro de especificación:", round(sigma_necesario, 4), "°C\n")
+
+```
+
+------------------------------------------------------------------------
+
+::: {#exr-ventas}
+### Análisis de Ventas Mensuales
+
+Las ventas mensuales de una tienda siguen $N(50000, 12000^2)$ pesos.
+
+**Tareas**:
+
+1.  Simula las ventas de 24 meses
+2.  ¿Cuál es la probabilidad de tener ventas superiores a 60,000 pesos?
+3.  ¿En cuántos meses se espera tener ventas por debajo de 30,000 pesos?
+4.  Calcula el rango intercuartílico de las ventas
+5.  Si la meta es superar 45,000 pesos, ¿qué porcentaje de meses se cumple?
+:::
+
+```{r}
+# Parámetros de ventas
+mu_ventas <- 50000  # pesos
+sigma_ventas <- 12000  # pesos
+# Simulación de ventas por 24 meses
+n_meses <- 24
+set.seed(321)
+ventas_mensuales <- rnorm(n_meses, mean = mu_ventas, sd = sigma_ventas)
+# Probabilidad de ventas superiores a 60,000 pesos
+prob_ventas_altas <- pnorm(60000, mean = mu_ventas, sd = sigma_ventas, lower.tail = FALSE)
+cat("Probabilidad de ventas superiores a 60,000 pesos:", round(prob_ventas_altas, 4), "\n")
+# Esperanza de meses con ventas por debajo de 30,000 pesos
+prob_ventas_bajas <- pnorm(30000, mean = mu_ventas, sd = sigma_ventas)
+meses_esperados_bajos <- prob_ventas_bajas * n_meses
+cat("Meses esperados con ventas por debajo de 30,000 pesos:", round(meses_esperados_bajos, 2), "\n")
+# Rango intercuartílico de las ventas
+q1_ventas <- quantile(ventas_mensuales, 0.25)
+q3_ventas <- quantile(ventas_mensuales, 0.75)
+rango_intercuartilico <- q3_ventas - q1_ventas
+cat("Rango intercuartílico de las ventas:", round(rango_intercuartilico, 2), "pesos\n")
+# Porcentaje de meses que cumplen la meta de superar 45,000 pesos
+porcentaje_cumplimiento_meta <- mean(ventas_mensuales > 45000) * 100
+cat("Porcentaje de meses que cumplen la meta de superar 45,000 pesos:", round(porcentaje_cumplimiento_meta, 2), "%\n")
+
+```
+
+::: {#exr-baterias}
+### Tiempo de Vida de Baterías
+
+La duración de baterías sigue $N(1200, 150^2)$ horas.
+
+1.  Simula la vida útil de 800 baterías
+2.  ¿Qué garantía (en horas) cubre al 95% de las baterías?
+3.  Si se venden 10,000 baterías con garantía de 900 horas, ¿cuántas se espera que fallen?
+4.  Compara la media y mediana de tu simulación con los valores teóricos
+5.  ¿Cuál es el percentil 10 de la distribución?
+:::
+
+```{r}
+# Parámetros de vida útil de baterías
+mu_baterias <- 1200  # horas
+sigma_baterias <- 150  # horas
+# Simulación de vida útil de 800 baterías
+n_baterias <- 800
+set.seed(654)
+vida_util_baterias <- rnorm(n_baterias, mean = mu_baterias, sd = sigma_baterias)
+# Garantía que cubre al 95% de las baterías
+garantia_95 <- qnorm(0.95, mean = mu_baterias, sd = sigma_baterias)
+cat("Garantía que cubre al 95% de las baterías:", round(garantia_95, 2), "horas\n")
+# Baterías que se espera que fallen con garantía de 900 horas
+prob_falla_garantia <- pnorm(900, mean = mu_baterias, sd = sigma_baterias)
+baterias_fallidas_esperadas <- prob_falla_garantia * 10000
+cat("Baterías que se espera que fallen con garantía de 900 horas:", round(baterias_fallidas_esperadas, 2), "\n")
+# Comparación de media y mediana
+media_simulada <- mean(vida_util_baterias)
+mediana_simulada <- median(vida_util_baterias)
+cat("Media simulada:", round(media_simulada, 2), "horas (Teórica:", mu_baterias, "horas)\n")
+cat("Mediana simulada:", round(mediana_simulada, 2), "horas (Teórica:", mu_baterias, "horas)\n")
+# Percentil 10 de la distribución
+percentil_10 <- qnorm(0.10, mean = mu_baterias, sd = sigma_baterias)
+cat("Percentil 10 de la distribución:", round(percentil_10, 2), "horas\n")
+
+```
+
+---
+
+::: {#exr-errores_medicion}
+### Análisis de Errores de Medición
+
+Los errores de un instrumento de medición siguen $N(0, 2.5^5)$ unidades.
+
+1.  Simula 1000 mediciones
+2.  ¿Qué porcentaje de errores está entre -5 y +5 unidades?
+3.  Calcula la probabilidad de que un error sea mayor a 6 unidades en valor absoluto
+4.  Si se considera "preciso" un error ≤ 3 unidades, ¿qué porcentaje de mediciones son precisas?
+5.  Verifica que la distribución es simétrica alrededor de 0
+:::
+
+```{r}
+# Parámetros de errores de medición
+mu_errores <- 0  # unidades
+sigma_errores <- 2.5  # unidades
+# Simulación de 1000 mediciones
+n_mediciones_errores <- 1000
+set.seed(987)
+errores_medicion <- rnorm(n_mediciones_errores, mean = mu_errores, sd = sigma_errores)
+
+# Porcentaje de errores entre -5 y +5 unidades
+porcentaje_entre_5 <- mean(errores_medicion >= -5 & errores_medicion <= 5) * 100
+cat("Porcentaje de errores entre -5 y +5 unidades:", round(porcentaje_entre_5, 2), "%\n")
+
+# Probabilidad de error mayor a 6 unidades en valor absoluto
+prob_error_mayor_6 <- 2 * pnorm(-6, mean = mu_errores, sd = sigma_errores)
+cat("Probabilidad de error mayor a 6 unidades en valor absoluto:", round(prob_error_mayor_6, 4), "\n")
+
+# Porcentaje de mediciones precisas (error ≤ 3 unidades)
+porcentaje_preciso <- mean(abs(errores_medicion) <= 3) * 100
+cat("Porcentaje de mediciones precisas (error ≤ 3 unidades):", round(porcentaje_preciso, 2), "%\n")
+
+# Verificación de simetría alrededor de 0
+asimetria_errores <- mean((errores_medicion - mu_errores)^3) / (sd(errores_medicion)^3)
+cat("Asimetría de la distribución de errores:", round(asimetria_errores, 4), "\n")
+
+```
+
+::: {#exr-examen_corporativo}
+### Puntuaciones de Examen Comparativo
+
+Dos grupos toman el mismo examen. Grupo A: $N(75, 10^2)$, Grupo B: $N(82, 8^2)$.
+
+1.  Simula 200 estudiantes de cada grupo
+2.  ¿Qué porcentaje de estudiantes del Grupo A supera la media del Grupo B?
+3.  ¿Cuál es la probabilidad de que un estudiante del Grupo B tenga puntuación menor a 70?
+4.  Compara las distribuciones visualmente
+5.  ¿A partir de qué puntuación está el 10% superior de cada grupo?
+:::
+
+```{r}
+# Parámetros de los grupos
+mu_grupo_A <- 75
+sigma_grupo_A <- 10
+mu_grupo_B <- 82
+sigma_grupo_B <- 8
+# Simulación de 200 estudiantes de cada grupo
+n_estudiantes <- 200
+set.seed(135)
+puntuaciones_A <- rnorm(n_estudiantes, mean = mu_grupo_A, sd = sigma_grupo_A)
+puntuaciones_B <- rnorm(n_estudiantes, mean = mu_grupo_B, sd = sigma_grupo_B)
+# Porcentaje de estudiantes del Grupo A que supera la media del Grupo B
+media_B <- mean(puntuaciones_B)
+porcentaje_A_supera_B <- mean(puntuaciones_A > media_B) * 100
+cat("Porcentaje de estudiantes del Grupo A que supera la media del Grupo B:", round(porcentaje_A_supera_B, 2), "%\n")
+# Probabilidad de que un estudiante del Grupo B tenga puntuación menor a 70
+prob_B_menor_70 <- pnorm(70, mean = mu_grupo_B, sd = sigma_grupo_B)
+cat("Probabilidad de que un estudiante del Grupo B tenga puntuación menor a 70:", round(prob_B_menor_70, 4), "\n")
+# Comparación visual de las distribuciones
+df_puntuaciones <- data.frame(
+  puntuacion = c(puntuaciones_A, puntuaciones_B),
+  grupo = rep(c("A", "B"), each = n_estudiantes)
+)
+ggplot(df_puntuaciones, aes(x = puntuacion, fill = grupo)) +
+  geom_histogram(aes(y = after_stat(density)), position = "identity", alpha = 0.6, bins = 30) +
+  geom_density(alpha = 0.2) +
+  labs(title = "Comparación de Puntuaciones entre Grupo A y Grupo B",
+       x = "Puntuación",
+       y = "Densidad") +
+  theme_minimal()
+# Puntuación del 10% superior de cada grupo
+percentil_90_A <- qnorm(0.90, mean = mu_grupo_A, sd = sigma_grupo_A)
+percentil_90_B <- qnorm(0.90, mean = mu_grupo_B, sd = sigma_grupo_B)
+cat("Puntuación del 10% superior del Grupo A:", round(percentil_90_A, 2), "\n")
+cat("Puntuación del 10% superior del Grupo B:", round(percentil_90_B, 2), "\n")
+
+```
+

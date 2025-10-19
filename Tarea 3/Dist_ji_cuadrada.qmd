@@ -1,0 +1,236 @@
+---
+title: "Distribución Ji-cuadrada"
+lang: es
+---
+
+```{=html}
+<style>
+main.content {
+text-align: justify}
+</style>
+```
+
+```{r}
+#| label: setup
+#| echo: false
+#| message: false
+#| warning: false
+
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(RColorBrewer)
+library(plotly)
+library(scales)
+library(viridis)
+
+```
+
+
+## Ejercicios Propuestos
+
+::: {#exr-simulaciones}
+
+Genera muestras aleatorias de diferentes tamaños desde 100 hasta 10000 observaciones para las distribuciones ji-cuadrada con n = 5, 20 y 50 grados de libertad. En casa caso:
+
+1. Genera una gráfica de convergencia de la media muestral hacia la media teórica a medida que aumenta el tamaño de la muestra.
+
+2. Genera una gráfica de convergencia de la varianza muestral hacia la varianza teórica a medida que aumenta el tamaño de la muestra.
+
+3. Para el tamaño de muestra más grande, genera un histograma de la muestra junto con la función de densidad teórica superpuesta.
+
+```{r}
+#| label: exr-simulaciones
+#| fig-cap: "Simulaciones y análisis de la distribución ji-cuadrada"
+#| warning: false
+
+set.seed(123)  # Para reproducibilidad
+n_grados_libertad <- c(5, 20, 50)
+tamaños_muestra <- seq(100, 10000, by = 100)
+resultados <- lapply(n_grados_libertad, function(n) {
+  medias <- sapply(tamaños_muestra, function(size) mean(rchisq(size, df = n)))
+  varianzas <- sapply(tamaños_muestra, function(size) var(rchisq(size, df = n)))
+  data.frame(
+    n = n,
+    tamaño_muestra = tamaños_muestra,
+    media_muestral = medias,
+    varianza_muestral = varianzas,
+    media_teorica = n,
+    varianza_teorica = 2 * n
+  )
+})
+df_resultados <- do.call(rbind, resultados)
+
+
+```
+
+:::
+
+
+::: {#exr-tcl_ji}
+
+Para diferentes tamaños de muestra verifica numéricamente el Teorema Central del Límite aplicado a la distribución ji-cuadrada, elige cualquier valor de los grados de libertad.
+```{r}
+#| label: exr-tcl_ji
+#| fig-cap: "Verificación del TCL para la distribución ji-cuadrada"
+
+
+set.seed(123)  # Para reproducibilidad
+n_grados_libertad <- 7
+tamaños_muestra <- c(5, 10, 30, 50, 100, 500, 1000)
+num_simulaciones <- 1000
+resultados <- lapply(tamaños_muestra, function(n) {
+  muestras <- replicate(num_simulaciones, sum(rchisq(n_grados_libertad, df = n_grados_libertad)))
+  data.frame(
+    tamaño_muestra = n,
+    media_muestral = mean(muestras),
+    varianza_muestral = var(muestras)
+  )
+})
+df_resultados <- do.call(rbind, resultados)
+
+```
+
+:::
+
+::: {#exr-suma_normal_cuadrada}
+
+Mediante simulaciones numéricas, verifica la propiedad de aditividad de la distribución ji-cuadrada sumando variables aleatorias normales estándar elevadas al cuadrado. Compara los resultados con la distribución ji-cuadrada teórica.
+
+:::
+
+```{r}
+#| label: exr-suma_normal_cuadrada
+#| fig-cap: "Verificación de la aditividad mediante normales estándar al cuadrado
+
+set.seed(123)  
+n_grados_libertad <- 10
+num_simulaciones <- 10000
+muestras <- replicate(num_simulaciones, sum(rnorm(n_grados_libertad)^2))
+df_muestras <- data.frame(valor = muestras)
+
+p_suma_normal <- ggplot(df_muestras, aes(x = valor)) +
+  geom_histogram(aes(y = ..density..), bins = 50, fill = "blue", color = "black", alpha = 0.7) +
+  geom_function(fun = function(x) dchisq(x, df = n_grados_libertad), 
+                aes(color = "Ji-cuadrada teórica"), size = 1.2) +
+  scale_color_manual(
+    name = "Distribución",
+    values = c("Ji-cuadrada teórica" = "red"),
+    breaks = c("Ji-cuadrada teórica")
+  ) +
+  labs(
+    title = "Verificación de la Aditividad mediante Normales Estándar al Cuadrado",
+    subtitle = paste("Suma de", n_grados_libertad, "normales estándar al cuadrado"),
+    x = "Valor",
+    y = "Densidad"
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    axis.title = element_text(size = 12),
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+    )
+print(p_suma_normal)
+
+```
+
+::: {#exr-aproximacion_normal}
+
+Mediante simulaciones numéricas, verifica la aproximación normal de la distribución ji-cuadrada para diferentes valores de n (por ejemplo, n = 10, 30, 50, 100). Compara las distribuciones muestrales con la normal teórica.
+
+:::
+
+```{r}
+#| label: exr-aproximacion_normal
+#| fig-cap: "Verificación de la aproximación normal de la distribución ji-cuadr
+
+set.seed(123)
+n_grados_libertad <- c(10, 30, 50, 100)
+num_simulaciones <- 10000
+resultados <- lapply(n_grados_libertad, function(n) {
+  muestras <- rchisq(num_simulaciones, df = n)
+  data.frame(
+    n = n,
+    valor = muestras
+  )
+})
+df_muestras <- do.call(rbind, resultados)
+p_aproximacion_normal <- ggplot(df_muestras, aes(x = valor)) +
+  geom_histogram(aes(y = ..density..), bins = 50, fill = "yellow", color = "black", alpha = 0.6) +
+  geom_function(data = data.frame(n = n_grados_libertad), 
+                aes(x = valor, color = paste("Ji-cuadrada n =", n)), 
+                fun = function(x, n) dchisq(x, df = n), size = 1.2) +
+  geom_function(data = data.frame(n = n_grados_libertad), 
+                aes(x = valor, color = paste("Normal n =", n)), 
+                fun = function(x, n) dnorm(x, mean = n, sd = sqrt(2 * n)), size = 1.2, linetype = "dashed") +
+  scale_color_viridis_d(
+    name = "Distribución",
+    limits = c(paste("Ji-cuadrada n =", n_grados_libertad), paste("Normal n =", n_grados_libertad))
+  ) +
+  labs(
+    title = "Verificación de la Aproximación Normal de la Distribución Ji-cuadrada",
+    subtitle = "Comparación entre ji-cuadrada y normal teórica",
+    x = "Valor",
+    y = "Densidad"
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    axis.title = element_text(size = 12),
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+    )
+print(p_aproximacion_normal)
+```
+
+
+
+::: {#exr-suma_ji}
+
+Por medio de simulaciones numéricas, verifica la propiedad de aditividad de la distribución ji-cuadrada sumando dos variables aleatorias ji-cuadrada independientes. Compara los resultados con la distribución ji-cuadrada teórica.
+
+:::
+```
+```{r}
+#| label: exr-suma_ji
+#| fig-cap: "Verificación de la aditividad de la distribución ji-cuadr
+
+n1 <- 5
+n2 <- 10
+num_simulaciones <- 1000
+muestras1 <- rchisq(num_simulaciones, df = n1)
+muestras2 <- rchisq(num_simulaciones, df = n2)
+suma_muestras <- muestras1 + muestras2
+df_suma <- data.frame(valor = suma_muestras)
+p_suma_ji <- ggplot(df_suma, aes(x = valor)) +
+  geom_histogram(aes(y = ..density..), bins = 50, fill = "lightcoral", color = "black", alpha = 0.7) +
+  geom_function(fun = function(x) dchisq(x, df = n1 + n2), 
+                aes(color = "Ji-cuadrada teórica"), size = 1.2) +
+  scale_color_manual(
+    name = "Distribución",
+    values = c("Ji-cuadrada teórica" = "#4E79A7"),
+    breaks = c("Ji-cuadrada teórica")
+  ) +
+  labs(
+    title = "Verificación de la Aditividad de la Distribución Ji-cuadrada",
+    subtitle = paste("Suma de ji-cuadrada con n1 =", n1, "y n2 =", n2),
+    x = "Valor",
+    y = "Densidad"
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    axis.title = element_text(size = 12),
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+    )
+print(p_suma_ji)
+```
+
+

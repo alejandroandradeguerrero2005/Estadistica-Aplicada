@@ -1,0 +1,92 @@
+---
+title: "Distribución F"
+lang: es
+---
+
+```{=html}
+<style>
+main.content {
+text-align: justify}
+</style>
+```
+
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(plotly)
+library(viridis)
+library(RColorBrewer)
+library(kableExtra)
+library(knitr)
+```
+
+## Ejercicios Propuestos
+
+::: {#exr-fisher}
+
+Por medio de simulación numérica (es decir, generando muestras aleatorias de una distribución F con diferentes parámetros, mostrando el histograma de densidad de las muestras y comparándolo con la PDF teórica correspondiente), verifique las siguientes propiedades:
+
+a) Si $X\sim t(n)$ entonces $X^2 \sim F(1,n)$.
+
+```{r}
+set.seed(123)
+n <- 10  # grados de libertad
+muestras_t <- rt(10000, df = n)
+muestras_F <- muestras_t^2
+
+# Histograma de las muestras de F(1, n)
+hist(muestras_F, probability = TRUE, breaks = 30, main = "Histograma de muestras de F(1, n)",
+     xlab = "x", col = "blue", border = "black")
+curve(df(x, 1, n), add = TRUE, col = "#282", lwd = 2)
+legend("topright", legend = c("PDF teórica F(1, n)"), col = "#998192", lwd = 2)
+
+
+```
+
+
+b) Si $X \sim F(a,b)$ entonces $\frac{1}{X} \sim F(b,a)$.
+
+
+```{r}
+set.seed(123)
+a <- 5
+b <- 10
+muestras_F_ab <- rf(1000, df1 = a, df2 = b
+)
+muestras_F_ba <- 1 / muestras_F_ab
+# Histograma de las muestras de F(b, a)
+hist(muestras_F_ba, probability = TRUE, breaks = 30, main = "Histograma de muestras de F(b, a)",
+     xlab = "x", col = "green", border = "black")
+curve(df(x, b, a), add = TRUE, col = "#277", lwd = 2)
+legend("topright", legend = c("PDF teórica F(b, a)"), col = "blue", lwd = 2)
+
+
+```
+
+c) Si $X \chi^2(a)$ y $Y \sim \chi^2(b)$ son independientes, entonces $\frac{X/a}{Y/b} \sim F(a,b)$.
+
+```{r}
+set.seed(123)
+a <- 5
+b <- 10
+muestras_chi2_a <- rchisq(1000, df = a)
+muestras_chi2_b <- rchisq(1000, df = b)
+muestras_F <- (muestras_chi2_a / a) / (muestras_chi2_b / b)
+# Histograma de las muestras de F(a, b)
+hist(muestras_F, probability = TRUE, breaks = 30, main = "Histograma de muestras de F(a, b)",
+     xlab = "x", col = "yellow", border = "black")
+curve(df(x, a, b), add = TRUE, col = "cyan", lwd = 2)
+legend("topright", legend = c("PDF teórica F(a, b)"), col = "purple", lwd = 2)
+
+
+```
+
+
+:::
+
