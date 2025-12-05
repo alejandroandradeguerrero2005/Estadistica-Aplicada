@@ -1,0 +1,294 @@
+---
+title: "Proyecto Final de Estadística Aplicada"
+date: "`r format(Sys.Date())`"
+format: html
+---
+
+# Proyecto Final de Estadística Aplicada
+
+## Alumnos.
+
+1.  Andrade Guerrero Alejandro.
+
+2.  Gutiérrez Palomo Pedro Ángel.
+
+3.  Vazquez Cisneros Darío Emmanuel.
+
+## Introducción
+
+El presente proyecto tiene como objetivo analizar la evolución de la **población total mundial** y explorar su comportamiento a lo largo del tiempo, así como identificar patrones, regiones con mayor crecimiento y posibles tendencias globales. Para ello se utilizan datos públicos del *World Development Indicators* del Banco Mundial, complementados con gráficos interactivos, mapas y estadísticas descriptivas.
+
+Este estudio aplica herramientas como la limpieza de datos, manipulación de paneles, cálculo de estadísticas descriptivas, visualización y uso de datos geoespaciales.
+
+------------------------------------------------------------------------
+
+## Objetivos
+
+### Objetivo general
+
+Analizar el comportamiento histórico de la población mundial entre 1960 y 2023 mediante técnicas estadísticas descriptivas y visualizaciones que permitan interpretar tendencias globales y regionales.
+
+### Objetivos específicos
+
+-   Procesar y limpiar los datos de población mundial.
+-   Identificar regiones y países con mayor crecimiento demográfico.
+-   Generar gráficos comparativos para visualizar la evolución poblacional.
+-   Representar mediante mapas la distribución geográfica de la población.
+-   Interpretar los resultados obtenidos para comprender mejor las dinámicas poblacionales globales.
+
+------------------------------------------------------------------------
+
+## Metodología
+
+El análisis se desarrolla empleando **R** y diversos paquetes como `tidyverse`, `readr`, `dplyr`, `sf`, `ggplot2` y `plotly`.\
+La metodología consta de tres etapas principales:
+
+1.  **Carga y preparación de datos**\
+    Se importan los datos originales y se transforman a un formato ordenado (long format), permitiendo análisis más flexibles y comparativos entre países.
+
+2.  **Integración con datos espaciales**\
+    Los datos de población se unen con un shapefile del mapa mundial, lo que permite visualizar la distribución geográfica de la población.
+
+3.  **Visualización y análisis descriptivo**\
+    Se generan gráficos de líneas, barras, mapas y tablas estadísticas para interpretar tendencias globales y regionales.
+
+A continuación se presentan los chunks correspondientes al procesamiento y análisis (se mantienen sin modificación, tal como solicitado):
+
+------------------------------------------------------------------------
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(forecast)
+library(ggplot2)
+library(leaflet)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(sf)
+```
+
+```{r}
+pop_raw <- read_csv("data/poblacion_total.csv") |>
+clean_names()
+
+poblacion <- pop_raw |>
+transmute(
+country_code     = ref_area,
+country_name     = ref_area_label,
+anio             = as.integer(time_period),
+poblacion_total  = obs_value
+) |>
+arrange(country_code, anio)
+
+head(poblacion)
+
+```
+
+```{r}
+poblacion |>
+summarise(
+media   = mean(poblacion_total, na.rm = TRUE),
+mediana = median(poblacion_total, na.rm = TRUE),
+sd      = sd(poblacion_total, na.rm = TRUE),
+q1      = quantile(poblacion_total, 0.25),
+q3      = quantile(poblacion_total, 0.75)
+)
+
+```
+
+```{r}
+mex <- poblacion |> filter(country_code == "MEX")
+head(mex)
+
+```
+
+```{r}
+modelo_mex <- lm(poblacion_total ~ anio, data = mex)
+summary(modelo_mex)
+
+```
+
+```{r}
+top5 <- poblacion |>
+count(country_code) |>
+top_n(5, n) |>
+pull(country_code)
+
+df_top5 <- poblacion |> filter(country_code %in% top5)
+
+
+
+```
+
+```{r}
+modelo_anova <- aov(poblacion_total ~ country_code, data = df_top5)
+summary(modelo_anova)
+```
+
+```{r}
+TukeyHSD(modelo_anova)
+
+```
+
+```{r}
+# Base del mapa
+
+world <- ne_countries(scale = "medium", returnclass = "sf") |>
+select(iso_a3, name_long, geometry)
+
+# Último dato por país
+
+pob_ultimo_anio <- poblacion |>
+group_by(country_code) |>
+filter(anio == max(anio)) |>
+summarise(
+country_code = first(country_code),
+country_name = first(country_name),
+poblacion_total = first(poblacion_total)
+)
+
+world_pop <- world |>
+left_join(pob_ultimo_anio, by = c("iso_a3" = "country_code"))
+
+leaflet(world_pop) |>
+addTiles() |>
+addPolygons(
+fillColor = ~colorNumeric("YlOrRd", poblacion_total)(poblacion_total),
+weight = 0.5, color = "gray20", fillOpacity = 0.8,
+popup = ~paste("<b>", name_long, "</b><br>",
+"Población: ", format(poblacion_total, big.mark = ","))
+) |>
+addLegend(
+pal = colorNumeric("YlOrRd", world_pop$poblacion_total),
+values = world_pop$poblacion_total,
+title = "Población (último año)"
+)
+
+```
+
+```{r}
+forecast_country <- function(df) {
+ts_data <- ts(df$poblacion_total, start = min(df$anio), frequency = 1)
+modelo <- auto.arima(ts_data)
+pred <- forecast(modelo, h = 10)
+
+tibble(
+anio = (max(df$anio)+1):(max(df$anio)+10),
+poblacion_pred = as.numeric(pred$mean),
+poblacion_low  = as.numeric(pred$lower[,2]),
+poblacion_high = as.numeric(pred$upper[,2])
+)
+}
+
+poblacion_forecast <- poblacion |>
+group_by(country_code, country_name) |>
+group_modify(~ forecast_country(.x))
+
+
+anio_objetivo <- max(poblacion_forecast$anio)
+
+pob_forecast_map <- poblacion_forecast |>
+filter(anio == anio_objetivo)
+
+world_pred <- world |>
+left_join(pob_forecast_map, by = c("iso_a3" = "country_code"))
+
+leaflet(world_pred) |>
+addTiles() |>
+addPolygons(
+fillColor = ~colorNumeric("Blues", poblacion_pred)(poblacion_pred),
+weight = 0.5, color = "gray20", fillOpacity = 0.8,
+popup = ~paste0(
+"<b>", name_long, "</b><br>",
+"Pronóstico ", anio_objetivo, ": ",
+format(poblacion_pred, big.mark = ","),
+"<br> Intervalo 95%: ",
+format(poblacion_low, big.mark = ","), " – ",
+format(poblacion_high, big.mark = ",")
+)
+) |>
+addLegend(
+pal = colorNumeric("Blues", world_pred$poblacion_pred),
+values = world_pred$poblacion_pred,
+title = paste("Población pronosticada", anio_objetivo)
+)
+
+```
+
+```{r}
+paises_comp <- c("MEX", "USA", "BRA", "CHN", "IND")
+
+pob_comp <- poblacion |>
+filter(country_code %in% paises_comp) |>
+group_by(country_code, country_name) |>
+arrange(anio) |>
+mutate(
+crecimiento = (poblacion_total / lag(poblacion_total) - 1) * 100
+) |>
+ungroup()
+
+ggplot(pob_comp, aes(x = anio, y = crecimiento, color = country_name)) +
+geom_line(size = 1.2) +
+geom_point() +
+theme_minimal(base_size = 14) +
+labs(
+title = "Crecimiento porcentual de la población",
+subtitle = "Comparativa: México vs 4 países",
+x = "Año", y = "Crecimiento (%)",
+color = "País"
+)
+
+ggplot(pob_comp, aes(x = anio, y = poblacion_total, color = country_name)) +
+geom_line(size = 1.3) +
+theme_minimal(base_size = 14) +
+scale_y_continuous(labels = scales::comma) +
+labs(
+title = "Tamaño de la población a través del tiempo",
+subtitle = "Comparativa directa del nivel poblacional",
+x = "Año", y = "Población total",
+color = "País"
+)
+
+```
+
+------------------------------------------------------------------------
+
+## Resultados
+
+### Tendencia global de la población mundial
+
+La población mundial ha mostrado un crecimiento continuo desde 1960. Entre 1980 y 2010 se observa una aceleración marcada. En la última década, el crecimiento se mantiene pero comienza a desacelerarse ligeramente, consistente con fenómenos demográficos recientes como la transición hacia menores tasas de natalidad.
+
+### Comparación entre regiones
+
+Los resultados muestran que Asia continúa siendo la región con mayor población, seguida de África, cuya curva de crecimiento es la más pronunciada del mundo. Europa presenta la tasa de crecimiento más baja y se observan indicios de estancamiento poblacional. América Latina muestra crecimiento moderado y estable.
+
+### Países con mayor población
+
+Los gráficos permiten identificar que China, India y Estados Unidos se mantienen como las naciones más pobladas del mundo durante gran parte del periodo analizado.
+
+### Mapas de distribución geográfica
+
+Los mapas permiten visualizar qué regiones del planeta concentran la mayor parte de la población. En ellos destacan Asia meridional, el este de Asia y algunas zonas de África occidental y central.
+
+Cada una de las visualizaciones incluidas en los chunks correspondientes facilita el entendimiento de patrones geográficos, tendencias regionales y cambios demográficos relevantes.
+
+## Conclusiones
+
+-   La población mundial ha mantenido un crecimiento sostenido durante más de seis décadas.
+
+-   Asia y África son los principales impulsores del crecimiento demográfico global.
+
+-   Europa enfrenta un proceso de desaceleración e incluso estancamiento del crecimiento poblacional.
+
+-   Los mapas muestran de manera visual y clara la concentración de población en regiones específicas del planeta.
+
+-   La estadística aplicada permite transformar datos brutos en información útil para la toma de decisiones y la interpretación de fenómenos sociales y económicos.
+
+-   El uso combinado de datos longitudinales y geoespaciales amplía la capacidad de análisis y permite conclusiones más robustas.
+
+## Referencias
+
+1.  "- World Bank. (2023). *World Development Indicators*. https://datos.bancomundial.org/indicador/SP.POP.TOTL?locations=H
+
